@@ -9,7 +9,8 @@ use crossterm::{
     queue,
     terminal::{self, Clear, ClearType, SetSize},
     cursor::{self, MoveTo, MoveUp, MoveLeft, MoveToRow, MoveToColumn},
-    style::{SetForegroundColor, ResetColor, Color}
+    style::{SetForegroundColor, ResetColor, Color},
+    event::{Event, read}
 };
 use rodio::{
     self,
@@ -20,12 +21,9 @@ use rodio::{
 
 const ELEMENTS: u16 = 100;
 const HEIGHT: u16 = ELEMENTS / 4 + 1;
-
-const SLEEP_MILLIS: u64 = 10;
-const SLEEP_DURATION: Duration = Duration::from_millis(SLEEP_MILLIS);
-const AUDIO_DURATION: Duration = Duration::from_millis(SLEEP_MILLIS);
-
 const BORDER_SIZE: u16 = 1;
+const SLEEP_DURATION: Duration = Duration::from_millis(10);
+const AUDIO_DURATION: Duration = Duration::from_millis(10);
 
 fn main() {
     println!("Choose a sorting algorithm to visualise");
@@ -38,38 +36,43 @@ fn main() {
 
     let (_stream, audio_handle) = OutputStream::try_default().expect("No output device found");
     let visualizer = Visualizer::new(audio_handle);
-
-    // Create random list to sort
     let mut list = create_random_list();
 
+    let (original_width, original_height) = terminal::size().expect("Failed to get terminal size");
+    Visualizer::setup_terminal(ELEMENTS + 2 * BORDER_SIZE, HEIGHT + 2 * BORDER_SIZE);
+
+    visualizer.print_list(&list);
     match input.trim() {
         "1" => {
-            visualizer.setup_terminal(&list);
             insertion_sort(&mut list, Some(visualizer.clone()));
         },
         "2" => {
-            visualizer.setup_terminal(&list);
             selection_sort(&mut list, Some(visualizer.clone()));
         },
         "3" => {
-            visualizer.setup_terminal(&list);
             merge_sort(&mut list, Some(visualizer.clone()));
         },
         "4" => {
-            visualizer.setup_terminal(&list);
             cocktail_sort(&mut list, Some(visualizer.clone()));
         }
         _ => {
+            Visualizer::reset_terminal(original_width, original_height);
             println!("Invalid choice, quitting...");
             std::process::exit(1);
         }
     }
     visualizer.print_list(&list);
 
-    terminal::disable_raw_mode().expect("Failed to unraw terminal");
-    execute!(stdout(), cursor::Show, MoveTo(0, HEIGHT + 1)).expect("Failed writing to stdout");
-    println!("Press any key to exit...");
-    stdin().read_line(&mut input).unwrap();
+    // Print a prompt and wait for user input to exit
+    execute!(stdout(), MoveTo(0, HEIGHT + 1)).expect("Failed writing to stdout");
+    writeln!(stdout(), "Press any key to exit...").expect("Failed writing to stdout");
+    loop {
+        match read() {
+            Ok(Event::Key(_)) => {break},
+            _ => {},
+        };
+    }
+    Visualizer::reset_terminal(original_width, original_height);
     std::process::exit(0);
 }
 
@@ -97,19 +100,24 @@ impl Visualizer {
     }
 
     // Sets the terminal up for visualization
-    // Clears buffer, hides cursor and enables raw mode
-    fn setup_terminal(&self, list: &Vec<u16>) {
+    // Clears buffer, hides cursor, enables raw mode and resizes
+    fn setup_terminal(width: u16, height: u16) {
         let mut out = stdout();
         out.flush().expect("Failed writing to stdout");
         execute!(
             out,
             cursor::Hide,
             MoveTo(0, 0),
-            SetSize(ELEMENTS + 2 * BORDER_SIZE, HEIGHT + 2 * BORDER_SIZE),
+            SetSize(width, height),
             Clear(ClearType::All),
         ).expect("Failed writing to stdout");
         terminal::enable_raw_mode().expect("Failed to raw terminal");
-        self.print_list(list);
+    }
+
+    // Resizes the terminal, restores to cooked mode, clears and shows the cursor
+    fn reset_terminal(width: u16, height: u16) {
+        terminal::disable_raw_mode().expect("Failed to unraw terminal");
+        execute!(stdout(), cursor::Show, SetSize(width, height), MoveTo(0, 0), Clear(ClearType::All)).expect("Failed writing to stdout");
     }
 
     // Plays a frequency proportional to the value passed
