@@ -224,9 +224,7 @@ fn selection_sort(list: &mut Vec<u16>, visualizer: Option<Visualizer>) {
             }
         }
         if min_index != i {
-            let temp = list[i];
-            list[i] = list[min_index];
-            list[min_index] = temp;
+            (list[i], list[min_index]) = (list[min_index], list[i]);
         }
         if let Some(vis) = &visualizer {
             vis.print_list(list);
@@ -265,6 +263,15 @@ fn merge(left: Vec<u16>, right: Vec<u16>, list: &mut Vec<u16>, visualizer: Optio
     let mut right = VecDeque::from(right);
     let mut index = 0;
 
+    // Colors the stack at current x red, and resets the one behind it to white
+    fn sweep(index: usize, list: &Vec<u16>, visualizer: &Visualizer) {
+        let x = index as u16 + visualizer.get_x_offset();
+        visualizer.print_stack(x, list[index], Color::Red);
+        if index > 0 {
+            visualizer.print_stack(x - 1, list[index - 1], Color::White);
+        }
+    }
+
     // Add the smallest element from the front of left/right until one runs out
     while left.len() > 0 && right.len() > 0 {
         if left[0] < right[0] {
@@ -274,7 +281,7 @@ fn merge(left: Vec<u16>, right: Vec<u16>, list: &mut Vec<u16>, visualizer: Optio
             list[index] = right.pop_front().unwrap();
         }
         if let Some(vis) = &visualizer {
-            merge_sweep(index, list, vis);
+            sweep(index, list, vis);
             vis.value_to_sound(&list[index]);
             sleep(SLEEP_DURATION);
         }
@@ -285,7 +292,7 @@ fn merge(left: Vec<u16>, right: Vec<u16>, list: &mut Vec<u16>, visualizer: Optio
     while left.len() > 0 {
         list[index] = left.pop_front().unwrap();
         if let Some(vis) = &visualizer {
-            merge_sweep(index, list, vis);
+            sweep(index, list, vis);
             vis.value_to_sound(&list[index]);
             sleep(SLEEP_DURATION);
         }
@@ -294,7 +301,7 @@ fn merge(left: Vec<u16>, right: Vec<u16>, list: &mut Vec<u16>, visualizer: Optio
     while right.len() > 0 {
         list[index] = right.pop_front().unwrap();
         if let Some(vis) = &visualizer {
-            merge_sweep(index, list, vis);
+            sweep(index, list, vis);
             vis.value_to_sound(&list[index]);
             sleep(SLEEP_DURATION);
         }
@@ -305,15 +312,7 @@ fn merge(left: Vec<u16>, right: Vec<u16>, list: &mut Vec<u16>, visualizer: Optio
     }   
 }
 
-// Colors the stack at current x red, and resets the one behind it to white
-// For use in the merge function
-fn merge_sweep(index: usize, list: &Vec<u16>, visualizer: &Visualizer) {
-    let x = index as u16 + visualizer.get_x_offset();
-    visualizer.print_stack(x, list[index], Color::Red);
-    if index > 0 {
-        visualizer.print_stack(x - 1, list[index - 1], Color::White);
-    }
-}
+
 
 // Sorts the list using the cocktail shaker sort algorithm
 // Visualizes the sorting if an instance of Visualizer is provided
@@ -326,9 +325,7 @@ fn cocktail_sort(list: &mut Vec<u16>, visualizer: Option<Visualizer>) {
     while lower_bound <= upper_bound {
         for i in lower_bound..upper_bound {
             if list[i] > list[i + 1] {
-                let temp = list[i];
-                list[i] = list[i + 1];
-                list[i + 1] = temp;
+                (list[i], list[i + 1]) = (list[i + 1], list[i]);
                 upper_bound = i;
             }
             if let Some(vis) = &visualizer {
@@ -343,9 +340,7 @@ fn cocktail_sort(list: &mut Vec<u16>, visualizer: Option<Visualizer>) {
         }
         for i in (lower_bound..upper_bound).rev() {
             if list[i] > list[i + 1] {
-                let temp = list[i];
-                list[i] = list[i + 1];
-                list[i + 1] = temp;
+                (list[i], list[i + 1]) = (list[i + 1], list[i]);
                 lower_bound = i;
             }
             if let Some(vis) = &visualizer {
